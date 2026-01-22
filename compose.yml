@@ -9,9 +9,9 @@ services:
       - PORT=8080
       - DB_HOST=db
       - DB_PORT=3306
-      - DB_USER=${DB_USER:-app_user}
-      - DB_PASSWORD=${DB_PASSWORD:-app_password}
-      - DB_NAME=${DB_NAME:-app_db}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
     depends_on:
       db:
         condition: service_healthy
@@ -34,10 +34,10 @@ services:
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
-      - MYSQL_DATABASE=${DB_NAME:-app_db}
-      - MYSQL_USER=${DB_USER:-app_user}
-      - MYSQL_PASSWORD=${DB_PASSWORD:-app_password}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
