@@ -1,4 +1,4 @@
-.PHONY: up down build logs clean restart backend-logs frontend-logs db-logs
+.PHONY: up down build logs clean restart backend-logs frontend-logs db-logs migrate migrate-down migrate-status
 
 up:
 	docker compose up -d
@@ -32,3 +32,12 @@ restart:
 
 ps:
 	docker compose ps
+
+migrate:
+	docker compose run --rm migrate
+
+migrate-down:
+	docker compose run --rm migrate -dir /app/migrations mysql "${DB_USER}:${DB_PASSWORD}@tcp(db:3306)/${DB_NAME}?parseTime=true" down
+
+migrate-status:
+	docker compose run --rm migrate -dir /app/migrations mysql "${DB_USER}:${DB_PASSWORD}@tcp(db:3306)/${DB_NAME}?parseTime=true" status
