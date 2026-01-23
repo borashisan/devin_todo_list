@@ -12,16 +12,17 @@ import (
 
 const createTodo = `-- name: CreateTodo :execresult
 INSERT INTO todos (id, title, is_completed)
-VALUES (UUID(), ?, ?)
+VALUES (?, ?, ?)
 `
 
 type CreateTodoParams struct {
+	ID          string `json:"id"`
 	Title       string `json:"title"`
 	IsCompleted bool   `json:"is_completed"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, createTodo, arg.Title, arg.IsCompleted)
+	return q.db.ExecContext(ctx, createTodo, arg.ID, arg.Title, arg.IsCompleted)
 }
 
 const deleteTodo = `-- name: DeleteTodo :exec

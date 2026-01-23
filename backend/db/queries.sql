@@ -10,7 +10,7 @@ ORDER BY created_at DESC;
 
 -- name: CreateTodo :execresult
 INSERT INTO todos (id, title, is_completed)
-VALUES (UUID(), ?, ?);
+VALUES (?, ?, ?);
 
 -- name: UpdateTodo :execresult
 UPDATE todos

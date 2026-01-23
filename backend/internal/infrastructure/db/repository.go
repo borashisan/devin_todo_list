@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/google/uuid"
 )
 
 type TodoRepository struct {
@@ -27,32 +29,19 @@ func (r *TodoRepository) GetQueries() *Queries {
 }
 
 func (r *TodoRepository) Create(ctx context.Context, title string) (*Todo, error) {
+	id := uuid.New().String()
 	params := CreateTodoParams{
+		ID:          id,
 		Title:       title,
 		IsCompleted: false,
 	}
 
-	result, err := r.queries.CreateTodo(ctx, params)
+	_, err := r.queries.CreateTodo(ctx, params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create todo: %w", err)
 	}
 
-	lastID, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert id: %w", err)
-	}
-
-	var id string
-	err = r.db.QueryRowContext(ctx, "SELECT id FROM todos WHERE ROWID = ?", lastID).Scan(&id)
-	if err != nil {
-		todos, listErr := r.queries.ListTodos(ctx)
-		if listErr != nil || len(todos) == 0 {
-			return nil, fmt.Errorf("failed to retrieve created todo: %w", err)
-		}
-		return &todos[0], nil
-	}
-
-	return r.queries.GetTodo(ctx, id)
+	return r.GetByID(ctx, id)
 }
 
 func (r *TodoRepository) GetByID(ctx context.Context, id string) (*Todo, error) {
