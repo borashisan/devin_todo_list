@@ -15,8 +15,6 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
     networks:
       - app-network
 
@@ -60,6 +58,8 @@ services:
         condition: service_healthy
     networks:
       - app-network
+    profiles:
+      - tools
 
 networks:
   app-network:
