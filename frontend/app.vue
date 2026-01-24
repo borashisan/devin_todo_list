@@ -18,19 +18,38 @@
                 type="text"
                 placeholder="Add a new task..."
                 class="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all"
+                :disabled="isAdding"
                 @keyup.enter="addTodo"
               />
               <button
                 @click="addTodo"
-                class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg"
+                :disabled="isAdding || !newTodoTitle.trim()"
+                class="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-xl hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                追加
+                {{ isAdding ? '...' : '追加' }}
               </button>
             </div>
           </div>
 
+          <!-- Loading State -->
+          <div v-if="isLoading" class="p-12 text-center">
+            <div class="inline-block w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-purple-300 mt-4">Loading...</p>
+          </div>
+
+          <!-- Error State -->
+          <div v-else-if="error" class="p-6 text-center">
+            <p class="text-red-400 mb-4">{{ error }}</p>
+            <button
+              @click="fetchTodos"
+              class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-all"
+            >
+              再試行
+            </button>
+          </div>
+
           <!-- Todo List -->
-          <div class="p-6">
+          <div v-else class="p-6">
             <ul class="space-y-3">
               <li
                 v-for="todo in todos"
@@ -39,8 +58,9 @@
               >
                 <!-- Checkbox -->
                 <button
-                  @click="toggleTodo(todo.id)"
-                  class="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200"
+                  @click="toggleTodo(todo)"
+                  :disabled="todo.isUpdating"
+                  class="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 disabled:opacity-50"
                   :class="todo.is_completed
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500 border-transparent'
                     : 'border-purple-400 hover:border-purple-300'"
@@ -67,9 +87,10 @@
                 <!-- Delete Button -->
                 <button
                   @click="deleteTodo(todo.id)"
-                  class="flex-shrink-0 px-3 py-1.5 text-sm text-red-300 hover:text-white hover:bg-red-500/50 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200"
+                  :disabled="todo.isDeleting"
+                  class="flex-shrink-0 px-3 py-1.5 text-sm text-red-300 hover:text-white hover:bg-red-500/50 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50"
                 >
-                  削除
+                  {{ todo.isDeleting ? '...' : '削除' }}
                 </button>
               </li>
 
@@ -81,7 +102,7 @@
           </div>
 
           <!-- Footer Stats -->
-          <div class="px-6 py-4 bg-white/5 border-t border-white/10">
+          <div v-if="!isLoading && !error" class="px-6 py-4 bg-white/5 border-t border-white/10">
             <div class="flex justify-between text-sm text-purple-300">
               <span>{{ completedCount }} / {{ todos.length }} completed</span>
               <span v-if="remainingCount > 0">{{ remainingCount }} remaining</span>
@@ -94,46 +115,108 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+
+const API_BASE = 'http://localhost:8080'
 
 interface Todo {
   id: string
   title: string
   is_completed: boolean
+  created_at?: string
+  updated_at?: string
+  // UI state
+  isUpdating?: boolean
+  isDeleting?: boolean
 }
 
-// Mock data (will be replaced with API calls later)
-const todos = ref<Todo[]>([
-  { id: '1', title: 'Buy groceries', is_completed: false },
-  { id: '2', title: 'Read a book', is_completed: true },
-  { id: '3', title: 'Write code', is_completed: false },
-])
-
+const todos = ref<Todo[]>([])
 const newTodoTitle = ref('')
+const isLoading = ref(true)
+const isAdding = ref(false)
+const error = ref<string | null>(null)
 
 const completedCount = computed(() => todos.value.filter(t => t.is_completed).length)
 const remainingCount = computed(() => todos.value.filter(t => !t.is_completed).length)
 
-function addTodo() {
-  if (!newTodoTitle.value.trim()) return
+// Fetch all todos
+async function fetchTodos() {
+  isLoading.value = true
+  error.value = null
 
-  const newTodo: Todo = {
-    id: Date.now().toString(),
-    title: newTodoTitle.value.trim(),
-    is_completed: false,
+  try {
+    const data = await $fetch<Todo[]>(`${API_BASE}/api/todos`)
+    todos.value = data
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Failed to fetch todos'
+  } finally {
+    isLoading.value = false
   }
-  todos.value.push(newTodo)
-  newTodoTitle.value = ''
 }
 
-function toggleTodo(id: string) {
+// Add a new todo
+async function addTodo() {
+  if (!newTodoTitle.value.trim() || isAdding.value) return
+
+  isAdding.value = true
+
+  try {
+    const newTodo = await $fetch<Todo>(`${API_BASE}/api/todos`, {
+      method: 'POST',
+      body: { title: newTodoTitle.value.trim() },
+    })
+    todos.value.unshift(newTodo)
+    newTodoTitle.value = ''
+  } catch (e) {
+    alert('Failed to add todo: ' + (e instanceof Error ? e.message : 'Unknown error'))
+  } finally {
+    isAdding.value = false
+  }
+}
+
+// Toggle todo completion
+async function toggleTodo(todo: Todo) {
+  if (todo.isUpdating) return
+
+  todo.isUpdating = true
+  const newStatus = !todo.is_completed
+
+  try {
+    const updated = await $fetch<Todo>(`${API_BASE}/api/todos/${todo.id}`, {
+      method: 'PATCH',
+      body: { is_completed: newStatus },
+    })
+    // Update the todo in the list
+    const index = todos.value.findIndex(t => t.id === todo.id)
+    if (index !== -1) {
+      todos.value[index] = { ...updated, isUpdating: false }
+    }
+  } catch (e) {
+    alert('Failed to update todo: ' + (e instanceof Error ? e.message : 'Unknown error'))
+    todo.isUpdating = false
+  }
+}
+
+// Delete a todo
+async function deleteTodo(id: string) {
   const todo = todos.value.find(t => t.id === id)
-  if (todo) {
-    todo.is_completed = !todo.is_completed
+  if (!todo || todo.isDeleting) return
+
+  todo.isDeleting = true
+
+  try {
+    await $fetch(`${API_BASE}/api/todos/${id}`, {
+      method: 'DELETE',
+    })
+    todos.value = todos.value.filter(t => t.id !== id)
+  } catch (e) {
+    alert('Failed to delete todo: ' + (e instanceof Error ? e.message : 'Unknown error'))
+    todo.isDeleting = false
   }
 }
 
-function deleteTodo(id: string) {
-  todos.value = todos.value.filter(t => t.id !== id)
-}
+// Load todos on mount
+onMounted(() => {
+  fetchTodos()
+})
 </script>
